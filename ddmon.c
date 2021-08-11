@@ -24,9 +24,9 @@ pthread_mutex_lock (pthread_mutex_t * mutex)
 		exit(1) ;
 
 	int mode = LOCK ;
-	pthread_t p = pthread_self() ;
+	pthread_t tid = pthread_self() ;
 	pthread_mutex_lock_p(&fifo_lock) ;
-		ddwrite(&mode, &p, mutex) ;
+		ddwrite(&mode, &tid, mutex) ;
 	pthread_mutex_unlock_p(&fifo_lock) ;
 
 	return pthread_mutex_lock_p(mutex) ;
@@ -45,9 +45,9 @@ pthread_mutex_unlock (pthread_mutex_t * mutex)
 		exit(1) ;
 	
 	int mode = UNLOCK ;
-	pthread_t p = pthread_self() ;
+	pthread_t tid = pthread_self() ;
 	pthread_mutex_lock_p(&fifo_lock) ;
-		ddwrite(&mode, &p, mutex) ;
+		ddwrite(&mode, &tid, mutex) ;
 	pthread_mutex_unlock_p(&fifo_lock) ;
 
 	return pthread_mutex_unlock_p(mutex) ;

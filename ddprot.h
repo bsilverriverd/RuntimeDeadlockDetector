@@ -47,7 +47,7 @@ write_bytes (int fd, void * a, int len)
 }
 
 int
-ddread (int fd, int * mode, pthread_t * p, pthread_mutex_t ** mutex)
+ddread (int fd, int * mode, pthread_t * tid, pthread_mutex_t ** mutex)
 {
 /*
 	if (mkfifo(".ddtrace", 0666)) {
@@ -69,7 +69,7 @@ ddread (int fd, int * mode, pthread_t * p, pthread_mutex_t ** mutex)
 //			perror("read1") ;
 			return 0;
 		}
-		if (read_bytes(fd, p, sizeof(pthread_t)) != sizeof(pthread_t)) {
+		if (read_bytes(fd, tid, sizeof(pthread_t)) != sizeof(pthread_t)) {
 //			flock(fd, LOCK_UN) ;
 //			perror("read2") ;
 			return 0 ;
@@ -86,7 +86,7 @@ ddread (int fd, int * mode, pthread_t * p, pthread_mutex_t ** mutex)
 }
 
 void
-ddwrite (int * mode, pthread_t * p, pthread_mutex_t * mutex)
+ddwrite (int * mode, pthread_t * tid, pthread_mutex_t * mutex)
 {
 	if (mkfifo(".ddtrace", 0666)) {
 		if (errno != EEXIST) {
@@ -95,14 +95,14 @@ ddwrite (int * mode, pthread_t * p, pthread_mutex_t * mutex)
 		}
 	}
 
-	printf("[WRITE] %d %ld %p\n", *mode, *p, mutex) ;
+	printf("[WRITE] %d %ld %p\n", *mode, *tid, mutex) ;
 	int fd = open(".ddtrace", O_WRONLY | O_SYNC) ;
 	if (fd < 0) {
 		perror("open") ;
 		exit (EXIT_FAILURE) ;
 	}	
 	write_bytes(fd, mode, sizeof(int)) ;
-	write_bytes(fd, p, sizeof(pthread_t)) ;
+	write_bytes(fd, tid, sizeof(pthread_t)) ;
 	write_bytes(fd, &mutex, sizeof(pthread_mutex_t *)) ;
 
 	close(fd) ;
