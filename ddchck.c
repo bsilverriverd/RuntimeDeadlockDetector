@@ -26,7 +26,9 @@ node_alloc (pthread_t tid, pthread_mutex_t * m)
 
 	n->tid = tid ;
 	n->m = m ;
-//fprintf(stderr, "[DEBUG] %p\n", n->m) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] %p\n", n->m) ;
+#endif
 	return n ;
 }
 
@@ -95,9 +97,6 @@ nodelist_search (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 int
 nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 {
-//	if (nodelist_search(nlist, tid, m))
-//		return 0 ;
-
 	nodelist * tmp = (nodelist *)malloc(sizeof(nodelist)) ;
 	if (tmp == 0x0) {
 		perror("nodelist_insert") ;
@@ -111,7 +110,9 @@ nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 	tmp->next = *nlist ;
 	*nlist = tmp ;
 
-//	fprintf(stderr, "[DEBUG] nodelist insert %p\n", (*nlist)->n->m) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] nodelist insert %p\n", (*nlist)->n->m) ;
+#endif
 	return 1 ;
 } /* nodelist_insert */
 
@@ -129,6 +130,9 @@ nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 	prev = curr ;
 	while (curr) {
 		if (pthread_equal(curr->n->tid, tid) && curr->n->m == m) {
+#if 1
+	fprintf(stderr, "[EQUAL] curr->n->tid %ld, tid %ld\n", curr->n->tid, tid) ;
+#endif
 			prev->next = curr->next ;
 			node_free(curr->n) ;
 			free(curr) ;
@@ -163,9 +167,6 @@ edgelist_search (edgelist ** elist, node * u, node * v)
 int
 edgelist_insert (edgelist ** elist, node * u, node * v)
 {
-//	if (edgelist_search(elist, u, v))
-//		return 0 ;
-	
 	edgelist * tmp = (edgelist *)malloc(sizeof(edgelist)) ;
 	if (tmp == 0x0) {
 		perror("edgelist_insert") ;
@@ -250,9 +251,10 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 	if (mode == LOCK) {
 
 		nodelist_insert(&g->nlist, tid, m) ;
-
-//		fprintf(stderr, "[DEBUG] lock_dep LOCK after nodelistinsert\n") ;
-//fprintf(stderr, "[DEBUG] %p\n", g->nlist->n->m) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] lock_dep LOCK after nodelistinsert\n") ;
+	fprintf(stderr, "[DEBUG] %p\n", g->nlist->n->m) ;
+#endif
 
 		nodelist * itr = g->nlist->next ; // new node is g->nlist so no need to create edge
 		while (itr) {
@@ -261,16 +263,20 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 			}
 			itr = itr->next ;
 		}
-//		fprintf(stderr, "[DEBUG] lock_dep LOCK end\n") ;
-
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] lock_dep LOCK end\n") ;
+#endif
 	} else if (mode == UNLOCK) {
 		edgelist_delete(&g->elist, tid, m) ;
-		//fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
-		//graph_print(g) ;
-		
+#ifdef DEBUG	
+	fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
+	graph_print(g) ;
+#endif
 		nodelist_delete(&g->nlist, tid, m) ;
-		//fprintf(stderr, "[DEBUG] nodelist_delete\n") ;
-//		fprintf(stderr, "[DEBUG] lock_dep UNLOCK\n") ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] nodelist_delete\n") ;
+	fprintf(stderr, "[DEBUG] lock_dep UNLOCK\n") ;
+#endif
 	} else {
 		perror("unkown mode") ;
 		exit(EXIT_FAILURE) ;
@@ -291,8 +297,6 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 			while (curr) {
 				if (curr->e->u->m == next->m) {
 					if (curr->e->visited == visit) {
-						printf("DEADLOCK\n") ;
-						graph_print(g) ;
 						return 1 ;
 					} else {
 						curr->e->visited = visit ;
@@ -313,6 +317,10 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 int
 main (int argc, char * argv[])
 {
+	if (argc != 2) {
+		printf("Few arguements!\n") ;
+		exit(EXIT_SUCCESS) ;
+	}
 	if (mkfifo(".ddtrace", 0666)) {
 		if (errno != EEXIST) {
 			perror("mkfifo") ;
@@ -343,7 +351,9 @@ main (int argc, char * argv[])
 
 		if (!ret)
 			continue ;
-		//printf("[READ] %d %ld %p\n", mode, tid, mutex) ;
+#ifdef DEBUG
+	fprintf(stderr, "[READ] %d %ld %p\n", mode, tid, mutex) ;
+#endif
 		if (!lock_dep(lockgraph, mode, tid, mutex))
 			continue ;
 		graph_print(lockgraph) ;
@@ -351,10 +361,10 @@ main (int argc, char * argv[])
 		
 		char command[1024] ;
 		char buf[1024] ;
-		snprintf(command, 1024, "addr2line -e %s %x", argv[1], addr) ;
+		snprintf(command, 1024, "addr2line -f -e %s %lx", argv[1], addr) ;
 		FILE * fp = popen(command, "r") ;
 		while (fgets(buf, 1024, fp) != 0x0)
-			printf("%s\n", buf) ;
+			printf("%s", buf) ;
 		pclose(fp) ;
 		break ;
 	}	

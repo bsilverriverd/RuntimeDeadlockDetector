@@ -32,12 +32,16 @@ pthread_mutex_lock (pthread_mutex_t * mutex)
 	char ** strings = backtrace_symbols(buffer, nptrs) ;
 	long int addr = 0 ;
 	for (int i = 0; i < nptrs; i++) {
-		//fprintf(stderr, "[DEBUG] %s\n", strings[i]) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] %s\n", strings[i]) ;
+#endif
 		char * tok = 0x0 ;
 		tok = strtok(strings[i], "()") ;
 		tok = strtok(0x0, "()") ;
 		addr = strtol(tok, 0x0, 16) ;
-		//fprintf(stderr, "[DEBUG] %s %lx\n", strings[i], addr) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] %s %lx\n", strings[i], addr) ;
+#endif
 	}
 	pthread_mutex_lock_p(&fifo_lock) ;
 		ddwrite(&mode, &tid, mutex, &addr) ;
@@ -65,12 +69,16 @@ pthread_mutex_unlock (pthread_mutex_t * mutex)
 	char ** strings = backtrace_symbols(buffer, nptrs) ;
 	long int addr = 0 ;
 	for (int i = 0; i < nptrs; i++) {
-		//fprintf(stderr, "[DEBUG] %s\n", strings[i]) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] %s\n", strings[i]) ;
+#endif
 		char * tok = 0x0 ;
 		tok = strtok(strings[i], "()") ;
 		tok = strtok(0x0, "()") ;
 		addr = strtol(tok, 0x0, 16) ;
-		//fprintf(stderr, "[DEBUG] %s %lx\n", strings[i], addr) ;
+#ifdef DEBUG
+	fprintf(stderr, "[DEBUG] %s %lx\n", strings[i], addr) ;
+#endif
 	}
 	pthread_mutex_lock_p(&fifo_lock) ;
 		ddwrite(&mode, &tid, mutex, &addr) ;
