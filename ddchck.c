@@ -90,13 +90,13 @@ nodelist_search (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 		itr = itr->next ;
 	}
 	return 0 ;
-}
+} /* nodelist_search */
 
 int
 nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 {
-	if (nodelist_search(nlist, tid, m))
-		return 0 ;
+//	if (nodelist_search(nlist, tid, m))
+//		return 0 ;
 
 	nodelist * tmp = (nodelist *)malloc(sizeof(nodelist)) ;
 	if (tmp == 0x0) {
@@ -113,7 +113,7 @@ nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 
 //	fprintf(stderr, "[DEBUG] nodelist insert %p\n", (*nlist)->n->m) ;
 	return 1 ;
-}
+} /* nodelist_insert */
 
 int
 nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
@@ -139,7 +139,7 @@ nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 	}
 
 	return 0 ;
-}
+} /* nodelist_delete */
 
 typedef struct edgelist_t {
 	edge * e ;
@@ -158,13 +158,13 @@ edgelist_search (edgelist ** elist, node * u, node * v)
 		itr = itr->next ;
 	}
 	return 0 ;
-}
+} /* edgelist_search */
 
 int
 edgelist_insert (edgelist ** elist, node * u, node * v)
 {
-	if (edgelist_search(elist, u, v))
-		return 0 ;
+//	if (edgelist_search(elist, u, v))
+//		return 0 ;
 	
 	edgelist * tmp = (edgelist *)malloc(sizeof(edgelist)) ;
 	if (tmp == 0x0) {
@@ -179,7 +179,7 @@ edgelist_insert (edgelist ** elist, node * u, node * v)
 	tmp->next = *elist ;
 	*elist = tmp ;
 	return 1 ;
-}
+} /* edgelist_insert */
 
 int
 edgelist_delete (edgelist ** elist, pthread_t tid, pthread_mutex_t * m)
@@ -206,7 +206,7 @@ edgelist_delete (edgelist ** elist, pthread_t tid, pthread_mutex_t * m)
 	}
 
 	return 0 ;
-}
+} /* edgelist_delete */
 
 typedef struct _graph {
 	nodelist * nlist ;
@@ -224,7 +224,7 @@ graph_init ()
 	g->elist = 0x0 ;
 
 	return g ;
-}
+} /* graph_init */
 
 void
 graph_print (graph * g)
@@ -242,9 +242,9 @@ graph_print (graph * g)
 		printf("[(%ld, %p), (%ld, %p)]\n", e_itr->e->u->tid, e_itr->e->u->m, e_itr->e->v->tid, e_itr->e->v->m) ;
 		e_itr = e_itr->next ;
 	}
-}
+} /* graph_print */
 
-void
+int
 lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 {
 	if (mode == LOCK) {
@@ -293,7 +293,7 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 					if (curr->e->visited == visit) {
 						printf("DEADLOCK\n") ;
 						graph_print(g) ;
-						exit(EXIT_SUCCESS) ;
+						return 1 ;
 					} else {
 						curr->e->visited = visit ;
 						next = curr->e->v ;
@@ -307,10 +307,11 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 		itr = itr->next ;
 		++visit ;
 	} // while(itr) 
-}
+	return 0 ;
+} /* lock_dep */
 
 int
-main ()
+main (int argc, char * argv[])
 {
 	if (mkfifo(".ddtrace", 0666)) {
 		if (errno != EEXIST) {
@@ -335,14 +336,27 @@ main ()
 		int mode ;
 		pthread_t tid ;
 		pthread_mutex_t * mutex ;
+		long int addr ;
 		flock(fd, LOCK_EX) ;
-			int ret = ddread(fd, &mode, &tid, &mutex) ;
+			int ret = ddread(fd, &mode, &tid, &mutex, &addr) ;
 		flock(fd, LOCK_UN) ;
-	
-		if (ret) {
-			//printf("[READ] %d %ld %p\n", mode, tid, mutex) ;
-			lock_dep(lockgraph, mode, tid, mutex) ;
-		}
+
+		if (!ret)
+			continue ;
+		//printf("[READ] %d %ld %p\n", mode, tid, mutex) ;
+		if (!lock_dep(lockgraph, mode, tid, mutex))
+			continue ;
+		graph_print(lockgraph) ;
+		printf("DEADLOCK!\n") ;
+		
+		char command[1024] ;
+		char buf[1024] ;
+		snprintf(command, 1024, "addr2line -e %s %x", argv[1], addr) ;
+		FILE * fp = popen(command, "r") ;
+		while (fgets(buf, 1024, fp) != 0x0)
+			printf("%s\n", buf) ;
+		pclose(fp) ;
+		break ;
 	}	
 	close(fd) ;
-}
+} /* main */

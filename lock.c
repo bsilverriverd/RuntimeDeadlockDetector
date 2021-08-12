@@ -30,4 +30,6 @@ main ()
 	printf("%zu\n", sizeof(long long int *)) ;
 	printf("%zu\n", sizeof(char *)) ;
 	printf("%zu\n", sizeof(pthread_t *)) ;
+	printf("%zu\n", sizeof(void *)) ;
+	printf("%zu\n", sizeof(void **)) ;
 }

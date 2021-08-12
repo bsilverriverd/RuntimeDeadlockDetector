@@ -13,6 +13,7 @@
 
 #define UNLOCK 0x00000000
 #define LOCK 0x00000001
+#define BT_BUF_SIZE 2 
 
 int
 read_bytes (int fd, void * a, int len)
@@ -47,7 +48,7 @@ write_bytes (int fd, void * a, int len)
 }
 
 int
-ddread (int fd, int * mode, pthread_t * tid, pthread_mutex_t ** mutex)
+ddread (int fd, int * mode, pthread_t * tid, pthread_mutex_t ** mutex, long int * addr)
 {
 /*
 	if (mkfifo(".ddtrace", 0666)) {
@@ -79,14 +80,19 @@ ddread (int fd, int * mode, pthread_t * tid, pthread_mutex_t ** mutex)
 			perror("read3") ;
 			return 0 ;
 		}
-//	flock(fd, LOCK_UN) ;
+		if (read_bytes(fd, addr, sizeof(long int)) != sizeof(long int)) {
+//			flock(fd, LOCK_UN) ;
+			perror("read3") ;
+			return 0 ;
+		}
+
 
 //	close(fd) ;
 	return 1 ;
 }
 
 void
-ddwrite (int * mode, pthread_t * tid, pthread_mutex_t * mutex)
+ddwrite (int * mode, pthread_t * tid, pthread_mutex_t * mutex, long int * addr)
 {
 	if (mkfifo(".ddtrace", 0666)) {
 		if (errno != EEXIST) {
@@ -104,7 +110,7 @@ ddwrite (int * mode, pthread_t * tid, pthread_mutex_t * mutex)
 	write_bytes(fd, mode, sizeof(int)) ;
 	write_bytes(fd, tid, sizeof(pthread_t)) ;
 	write_bytes(fd, &mutex, sizeof(pthread_mutex_t *)) ;
-
+	write_bytes(fd, addr, sizeof(long int)) ;
 	close(fd) ;
 }
 #endif

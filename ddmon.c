@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -25,8 +26,21 @@ pthread_mutex_lock (pthread_mutex_t * mutex)
 
 	int mode = LOCK ;
 	pthread_t tid = pthread_self() ;
+	
+	void *buffer[BT_BUF_SIZE] ;
+	int nptrs = backtrace(buffer, BT_BUF_SIZE) ;
+	char ** strings = backtrace_symbols(buffer, nptrs) ;
+	long int addr = 0 ;
+	for (int i = 0; i < nptrs; i++) {
+		//fprintf(stderr, "[DEBUG] %s\n", strings[i]) ;
+		char * tok = 0x0 ;
+		tok = strtok(strings[i], "()") ;
+		tok = strtok(0x0, "()") ;
+		addr = strtol(tok, 0x0, 16) ;
+		//fprintf(stderr, "[DEBUG] %s %lx\n", strings[i], addr) ;
+	}
 	pthread_mutex_lock_p(&fifo_lock) ;
-		ddwrite(&mode, &tid, mutex) ;
+		ddwrite(&mode, &tid, mutex, &addr) ;
 	pthread_mutex_unlock_p(&fifo_lock) ;
 
 	return pthread_mutex_lock_p(mutex) ;
@@ -46,8 +60,20 @@ pthread_mutex_unlock (pthread_mutex_t * mutex)
 	
 	int mode = UNLOCK ;
 	pthread_t tid = pthread_self() ;
+	void *buffer[BT_BUF_SIZE] ;
+	int nptrs = backtrace(buffer, BT_BUF_SIZE) ;
+	char ** strings = backtrace_symbols(buffer, nptrs) ;
+	long int addr = 0 ;
+	for (int i = 0; i < nptrs; i++) {
+		//fprintf(stderr, "[DEBUG] %s\n", strings[i]) ;
+		char * tok = 0x0 ;
+		tok = strtok(strings[i], "()") ;
+		tok = strtok(0x0, "()") ;
+		addr = strtol(tok, 0x0, 16) ;
+		//fprintf(stderr, "[DEBUG] %s %lx\n", strings[i], addr) ;
+	}
 	pthread_mutex_lock_p(&fifo_lock) ;
-		ddwrite(&mode, &tid, mutex) ;
+		ddwrite(&mode, &tid, mutex, &addr) ;
 	pthread_mutex_unlock_p(&fifo_lock) ;
 
 	return pthread_mutex_unlock_p(mutex) ;
