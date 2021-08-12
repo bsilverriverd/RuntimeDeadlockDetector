@@ -254,7 +254,6 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 //		fprintf(stderr, "[DEBUG] lock_dep LOCK after nodelistinsert\n") ;
 //fprintf(stderr, "[DEBUG] %p\n", g->nlist->n->m) ;
 
-
 		nodelist * itr = g->nlist->next ; // new node is g->nlist so no need to create edge
 		while (itr) {
 			if (pthread_equal(itr->n->tid, tid)) {
@@ -266,38 +265,48 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 
 	} else if (mode == UNLOCK) {
 		edgelist_delete(&g->elist, tid, m) ;
-		fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
-		graph_print(g) ;
+		//fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
+		//graph_print(g) ;
 		
 		nodelist_delete(&g->nlist, tid, m) ;
-		fprintf(stderr, "[DEBUG] nodelist_delete\n") ;
+		//fprintf(stderr, "[DEBUG] nodelist_delete\n") ;
 //		fprintf(stderr, "[DEBUG] lock_dep UNLOCK\n") ;
 	} else {
 		perror("unkown mode") ;
 		exit(EXIT_FAILURE) ;
 	}
-/**
-	edgelist * itr = glist->elist ;
+
+	edgelist * itr = g->elist ;
 	while (itr) {
 		itr->e->visited = 0 ;
 		itr = itr->next ;
 	}
-	itr = glist->elist ;
+	itr = g->elist ;
+	int visit = 1 ;
 	while (itr) {
 		if (!itr->e->visited) {
-			itr->e->visited = 1 ;
-			node * start = itr->e->u ;
+			itr->e->visited = visit ;
 			node * next = itr->e->v ;
-			edgelist * curr = glist->elist ;
+			edgelist * curr = g->elist ;
 			while (curr) {
-				if (node_equal(curr->e->u, next)) {
-					
+				if (curr->e->u->m == next->m) {
+					if (curr->e->visited == visit) {
+						printf("DEADLOCK\n") ;
+						graph_print(g) ;
+						exit(EXIT_SUCCESS) ;
+					} else {
+						curr->e->visited = visit ;
+						next = curr->e->v ;
+						curr = g->elist ;
+					}
+				} else {
+					curr = curr->next ;
 				}
-			}
-
+			} // while(curr)
 		}
-	}
-**/
+		itr = itr->next ;
+		++visit ;
+	} // while(itr) 
 }
 
 int
@@ -331,9 +340,8 @@ main ()
 		flock(fd, LOCK_UN) ;
 	
 		if (ret) {
-			printf("[READ] %d %ld %p\n", mode, tid, mutex) ;
+			//printf("[READ] %d %ld %p\n", mode, tid, mutex) ;
 			lock_dep(lockgraph, mode, tid, mutex) ;
-			graph_print(lockgraph) ;
 		}
 	}	
 	close(fd) ;

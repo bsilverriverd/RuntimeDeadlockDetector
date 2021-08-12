@@ -13,7 +13,7 @@ void *lock(){
 	int lock1 = rand() % 3 + 1;
 	int lock2 = 0;
 	while((lock2 = rand() % 3 + 1) == lock1){}
-	printf(“%lu >> %d - %d\n”, pthread_self(), lock1, lock2);
+	printf("%lu >> %d - %d\n", pthread_self(), lock1, lock2);
 	lock_num(lock1);
 	usleep(500);
 	lock_num(lock2);
@@ -23,14 +23,14 @@ void *lock(){
 }
 int main(){
 	srand(time(0x0));
-	printf(“%p - %p - %p\n\n”, &m1, &m2, &m3);
+	printf("%p - %p - %p\n\n", &m1, &m2, &m3);
 	pthread_t thread1, thread2;
 	pthread_create(&thread1, NULL, lock, NULL);
 	pthread_create(&thread2, NULL, lock, NULL);
 	pthread_join(thread1, NULL);
 	pthread_join(thread2, NULL);
 	
-	printf(“\n\n”);
+	printf("\n\n");
 	return 0;
 }
 void lock_num(int num){
