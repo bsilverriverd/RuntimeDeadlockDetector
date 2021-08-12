@@ -51,13 +51,13 @@ typedef struct edge_t {
 } edge ;
 
 edge *
-edge_alloc (node ** u, node ** v)
+edge_alloc (node * u, node * v)
 {
 	edge * e = (edge *)malloc(sizeof(edge)) ;
 	if (e == 0x0)
 		return 0x0 ;
-	e->u = *u ;
-	e->v = *v ;
+	e->u = u ;
+	e->v = v ;
 	e->visited = 0 ;
 
 	return e ;
@@ -130,9 +130,6 @@ nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 	prev = curr ;
 	while (curr) {
 		if (pthread_equal(curr->n->tid, tid) && curr->n->m == m) {
-#if 1
-	fprintf(stderr, "[EQUAL] curr->n->tid %ld, tid %ld\n", curr->n->tid, tid) ;
-#endif
 			prev->next = curr->next ;
 			node_free(curr->n) ;
 			free(curr) ;
@@ -172,7 +169,7 @@ edgelist_insert (edgelist ** elist, node * u, node * v)
 		perror("edgelist_insert") ;
 		exit(EXIT_FAILURE) ;
 	}
-	tmp->e = edge_alloc(&u, &v) ;
+	tmp->e = edge_alloc(u, v) ;
 	if (tmp->e == 0x0) {
 		perror("edge_alloc") ;
 		exit(EXIT_FAILURE) ;
@@ -196,6 +193,9 @@ edgelist_delete (edgelist ** elist, pthread_t tid, pthread_mutex_t * m)
 	prev = curr ;
 	while (curr) {
 		if (pthread_equal(curr->e->v->tid, tid) && curr->e->v->m == m) {
+#if 1
+	fprintf(stderr, "[EQUAL] curr->n->tid %ld, tid %ld\n", curr->e->v->tid, tid) ;
+#endif
 			prev->next = curr->next ;
 			edge_free(curr->e) ;
 			free(curr) ;
@@ -290,7 +290,7 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
 	itr = g->elist ;
 	int visit = 1 ;
 	while (itr) {
-		if (!itr->e->visited) {
+		if (itr->e->u->tid != 0x0 && !itr->e->visited) {
 			itr->e->visited = visit ;
 			node * next = itr->e->v ;
 			edgelist * curr = g->elist ;
@@ -354,8 +354,10 @@ main (int argc, char * argv[])
 #ifdef DEBUG
 	fprintf(stderr, "[READ] %d %ld %p\n", mode, tid, mutex) ;
 #endif
-		if (!lock_dep(lockgraph, mode, tid, mutex))
-			continue ;
+		if (!lock_dep(lockgraph, mode, tid, mutex)) {
+			graph_print(lockgraph) ;
+		continue ;
+		}
 		graph_print(lockgraph) ;
 		printf("DEADLOCK!\n") ;
 		
