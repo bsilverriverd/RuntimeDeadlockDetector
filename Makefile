@@ -1,4 +1,3 @@
-
 all: ddmon.c ddchck.c
 	gcc -g -shared -fPIC -o ddmon.so ddmon.c -ldl -pthread
 	gcc -o ddchck ddchck.c -pthread
