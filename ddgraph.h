@@ -4,29 +4,19 @@
 typedef struct node_t {
 	pthread_t tid ;
 	pthread_mutex_t * m ;
+	struct node_t * next ;
 } node ;
 
 typedef struct edge_t {
 	node * u ;
 	node * v ;
 	int visited ;
+	struct edge_t * next ;
 } edge ;
 
-typedef struct nodelist_t {
-	node * n ;
-	struct nodelist_t * next ;
-	int size ;
-} nodelist ;
-
-typedef struct edgelist_t {
-	edge * e ;
-	struct edgelist_t * next ;
-	int size ;
-} edgelist ;
-
 typedef struct _graph {
-	nodelist * nlist ;
-	edgelist * elist ;
+	node * nlist ;
+	edge * elist ;
 } graph ;
 
 node *
@@ -48,22 +38,22 @@ void
 edge_free (edge * e) ;
 
 int
-nodelist_search (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m) ;
+node_search (node ** nlist, pthread_t tid, pthread_mutex_t * m) ;
 
 int
-nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m) ;
+node_insert (node ** nlist, pthread_t tid, pthread_mutex_t * m) ;
 
 int
-nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m) ;
+node_delete (node ** nlist, pthread_t tid, pthread_mutex_t * m) ;
 
 int
-edgelist_search (edgelist ** elist, node * u, node * v) ;
+edge_search (edge ** elist, node * u, node * v) ;
 
 int
-edgelist_insert (edgelist ** elist, node * u, node * v) ;
+edge_insert (edge ** elist, node * u, node * v) ;
 
 int
-edgelist_delete (edgelist ** elist, pthread_t tid, pthread_mutex_t * m) ;
+edge_delete (edge ** elist, pthread_t tid, pthread_mutex_t * m) ;
 
 graph *
 graph_init () ;
