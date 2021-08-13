@@ -5,7 +5,7 @@
 #include <execinfo.h>
 #include <errno.h>
 
-#include "ddgraph.h"
+#include "ddgraph2.h"
 
 node *
 node_alloc (pthread_t tid, pthread_mutex_t * m)
@@ -16,6 +16,7 @@ node_alloc (pthread_t tid, pthread_mutex_t * m)
 
 	n->tid = tid ;
 	n->m = m ;
+	n->next = 0x0 ;
 #ifdef DEBUG
 	//fprintf(stderr, "[DEBUG] %p\n", n->m) ;
 #endif
@@ -43,6 +44,7 @@ edge_alloc (node * u, node * v)
 	e->u = u ;
 	e->v = v ;
 	e->visited = 0 ;
+	e->next = 0x0 ;
 
 	return e ;
 }
@@ -56,18 +58,16 @@ edge_equal (edge * e, edge * f)
 void
 edge_free (edge * e)
 {
-	e->u = 0x0 ;
-	e->v = 0x0 ;
 	free(e) ;
 }
 
 int
-nodelist_search (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
+node_search (node ** nlist, pthread_t tid, pthread_mutex_t * m)
 {
-	nodelist * itr = *nlist ;
+	node * itr = *nlist ;
 
 	while (itr) {
-		if (pthread_equal(itr->n->tid, tid) && itr->n->m == m)
+		if (pthread_equal(itr->tid, tid) && itr->m == m)
 			return 1 ;
 		itr = itr->next ;
 	}
@@ -75,18 +75,13 @@ nodelist_search (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 } /* nodelist_search */
 
 int
-nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
+node_insert (node ** nlist, pthread_t tid, pthread_mutex_t * m)
 {
-	if (nodelist_search(nlist, tid, m))
+	if (node_search(nlist, tid, m))
 		return 0 ;
 
-	nodelist * tmp = (nodelist *)malloc(sizeof(nodelist)) ;
+	node * tmp = node_alloc(tid, m) ;
 	if (tmp == 0x0) {
-		perror("nodelist_insert") ;
-		exit(EXIT_FAILURE) ;
-	}
-	tmp->n = node_alloc(tid, m) ;
-	if (tmp->n == 0x0) {
 		perror("node_alloc") ;
 		exit(EXIT_FAILURE) ;
 	}
@@ -100,22 +95,20 @@ nodelist_insert (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 } /* nodelist_insert */
 
 int
-nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
+node_delete (node ** nlist, pthread_t tid, pthread_mutex_t * m)
 {
-	nodelist * curr = *nlist ;
-	nodelist * prev = 0x0 ;
-	if (curr != 0x0 && pthread_equal(curr->n->tid, tid) && curr->n->m == m) {
+	node * curr = *nlist ;
+	node * prev = 0x0 ;
+	if (curr != 0x0 && pthread_equal(curr->tid, tid) && curr->m == m) {
 		*nlist = curr->next ;
-		node_free(curr->n) ;
-		free(curr) ;
+		node_free(curr) ;
 		return 1 ;
 	}
 	prev = curr ;
 	while (curr) {
-		if (pthread_equal(curr->n->tid, tid) && curr->n->m == m) {
+		if (pthread_equal(curr->tid, tid) && curr->m == m) {
 			prev->next = curr->next ;
-			node_free(curr->n) ;
-			free(curr) ;
+			node_free(curr) ;
 			return 1 ;
 		}
 		prev = curr ;
@@ -126,12 +119,12 @@ nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 } /* nodelist_delete */
 
 int
-edgelist_search (edgelist ** elist, node * u, node * v)
+edge_search (edge ** elist, node * u, node * v)
 {
-	edgelist * itr = *elist ;
+	edge * itr = *elist ;
 
 	while (itr) {
-		if (pthread_equal(itr->e->u->tid, u->tid) && itr->e->u->m == u->m && pthread_equal(itr->e->v->tid, v->tid) && itr->e->v->m == v->m)
+		if (pthread_equal(itr->u->tid, u->tid) && itr->u->m == u->m && pthread_equal(itr->v->tid, v->tid) && itr->v->m == v->m)
 			return 1 ;
 		itr = itr->next ;
 	}
@@ -139,18 +132,13 @@ edgelist_search (edgelist ** elist, node * u, node * v)
 } /* edgelist_search */
 
 int
-edgelist_insert (edgelist ** elist, node * u, node * v)
+edge_insert (edge ** elist, node * u, node * v)
 {
-	if (edgelist_search(elist, u, v))
+	if (edge_search(elist, u, v))
 		return 0 ;
 
-	edgelist * tmp = (edgelist *)malloc(sizeof(edgelist)) ;
+	edge * tmp = edge_alloc(u, v) ;
 	if (tmp == 0x0) {
-		perror("edgelist_insert") ;
-		exit(EXIT_FAILURE) ;
-	}
-	tmp->e = edge_alloc(u, v) ;
-	if (tmp->e == 0x0) {
 		perror("edge_alloc") ;
 		exit(EXIT_FAILURE) ;
 	}
@@ -160,22 +148,20 @@ edgelist_insert (edgelist ** elist, node * u, node * v)
 } /* edgelist_insert */
 
 int
-edgelist_delete (edgelist ** elist, pthread_t tid, pthread_mutex_t * m)
+edge_delete (edge ** elist, pthread_t tid, pthread_mutex_t * m)
 {
-	edgelist * curr = *elist ;
-	edgelist * prev = 0x0 ;
-	while (curr != 0x0 && pthread_equal(curr->e->v->tid, tid) && curr->e->v->m == m) {
+	edge * curr = *elist ;
+	edge * prev = 0x0 ;
+	while (curr != 0x0 && pthread_equal(curr->v->tid, tid) && curr->v->m == m) {
 		*elist = curr->next ;
-		edge_free(curr->e) ;
-		free(curr) ;
+		edge_free(curr) ;
 		curr = *elist ;
 	}
 	prev = curr ;
 	while (curr) {
-		if (pthread_equal(curr->e->v->tid, tid) && curr->e->v->m == m) {
+		if (pthread_equal(curr->v->tid, tid) && curr->v->m == m) {
 			prev->next = curr->next ;
-			edge_free(curr->e) ;
-			free(curr) ;
+			edge_free(curr) ;
 			curr = prev->next ;
 		} else {
 			prev = curr ;
@@ -202,17 +188,17 @@ graph_init ()
 void
 graph_print (graph * g)
 {
-	nodelist * n_itr = g->nlist ;
-	edgelist * e_itr = g->elist ;
+	node * n_itr = g->nlist ;
+	edge * e_itr = g->elist ;
 
 	printf("[NODES]\n") ;
 	while (n_itr) {
-		printf("(%ld, %p)\n", n_itr->n->tid, n_itr->n->m) ;
+		printf("(%ld, %p)\n", n_itr->tid, n_itr->m) ;
 		n_itr = n_itr->next ;
 	}
 	printf("[EDGES]\n") ;
 	while (e_itr) {
-		printf("[(%ld, %p), (%ld, %p)]\n", e_itr->e->u->tid, e_itr->e->u->m, e_itr->e->v->tid, e_itr->e->v->m) ;
+		printf("[(%ld, %p), (%ld, %p)]\n", e_itr->u->tid, e_itr->u->m, e_itr->v->tid, e_itr->v->m) ;
 		e_itr = e_itr->next ;
 	}
 } /* graph_print */
@@ -220,7 +206,7 @@ graph_print (graph * g)
 int
 graph_lock (graph * g, pthread_t tid, pthread_mutex_t * m)
 {
-	if (!nodelist_insert(&g->nlist, tid, m)) {
+	if (!node_insert(&g->nlist, tid, m)) {
 		printf("RELOCK!\n") ;
 		return 0 ;
 	}
@@ -228,10 +214,10 @@ graph_lock (graph * g, pthread_t tid, pthread_mutex_t * m)
 	//fprintf(stderr, "[DEBUG] lock_dep LOCK after nodelistinsert\n") ;
 	//fprintf(stderr, "[DEBUG] %p\n", g->nlist->n->m) ;
 #endif
-	nodelist * itr = g->nlist->next ; // new node is g->nlist so no need to create edge
+	node * itr = g->nlist->next ; // new node is g->nlist so no need to create edge
 	while (itr) {
-		if (pthread_equal(itr->n->tid, tid)) {
-			edgelist_insert(&g->elist, itr->n, g->nlist->n) ;
+		if (pthread_equal(itr->tid, tid)) {
+			edge_insert(&g->elist, itr, g->nlist) ;
 		}
 		itr = itr->next ;
 	}
@@ -241,12 +227,12 @@ graph_lock (graph * g, pthread_t tid, pthread_mutex_t * m)
 void
 graph_unlock (graph * g, pthread_t tid, pthread_mutex_t * m)
 {
-	edgelist_delete(&g->elist, tid, m) ;
+	edge_delete(&g->elist, tid, m) ;
 #ifdef DEBUG	
 	//fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
 	//graph_print(g) ;
 #endif
-	nodelist_delete(&g->nlist, tid, m) ;
+	node_delete(&g->nlist, tid, m) ;
 #ifdef DEBUG
 	//fprintf(stderr, "[DEBUG] nodelist_delete\n") ;
 	//graph_print(g) ;
@@ -256,25 +242,25 @@ graph_unlock (graph * g, pthread_t tid, pthread_mutex_t * m)
 int
 graph_detect (graph * g)
 {
-	edgelist * itr = g->elist ;
+	edge * itr = g->elist ;
 	while (itr) {
-		itr->e->visited = 0 ;
+		itr->visited = 0 ;
 		itr = itr->next ;
 	}
 	itr = g->elist ;
 	int visit = 1 ;
 	while (itr) {
-		if (!itr->e->visited) {
-			itr->e->visited = visit ;
-			node * next = itr->e->v ;
-			edgelist * curr = g->elist ;
+		if (!itr->visited) {
+			itr->visited = visit ;
+			node * next = itr->v ;
+			edge * curr = g->elist ;
 			while (curr) {
-				if (curr->e->u->m == next->m) {
-					if (curr->e->visited == visit) {
+				if (curr->u->m == next->m) {
+					if (curr->visited == visit) {
 						return 1 ;
 					} else {
-						curr->e->visited = visit ;
-						next = curr->e->v ;
+						curr->visited = visit ;
+						next = curr->v ;
 						curr = g->elist ;
 					}
 				} else {

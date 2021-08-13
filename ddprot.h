@@ -100,8 +100,9 @@ ddwrite (int * mode, pthread_t * tid, pthread_mutex_t * mutex, long int * addr)
 			exit(EXIT_FAILURE) ;
 		}
 	}
-
+#ifdef DEBUG
 	printf("[WRITE] %d %ld %p\n", *mode, *tid, mutex) ;
+#endif
 	int fd = open(".ddtrace", O_WRONLY | O_SYNC) ;
 	if (fd < 0) {
 		perror("open") ;
