@@ -1,10 +1,11 @@
-all: ddmon.c ddchck.c
+all: ddmon.c ddchck.c ddmon_chck.c ddgraph.c
 	gcc -g -shared -fPIC -o ddmon.so ddmon.c -ldl -pthread
 	gcc -o ddchck ddchck.c -pthread
+	gcc -g -shared -fPIC -o ddmon_chck.so ddmon_chck.c ddgraph.c -ldl -pthread
 
 debug: ddmon.c ddchck.c
 	gcc -g -shared -fPIC -o ddmon.so ddmon.c -ldl -pthread -DDEBUG
 	gcc -o ddchck ddchck.c -pthread -DDEBUG
 
 clean:
-	rm ddmon.so ddchck
+	rm ddmon.so ddmon_chck.so ddchck

@@ -1,21 +1,11 @@
 #include <stdio.h>
-#include <unistd.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <execinfo.h>
 #include <errno.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/file.h>
 
-#include "ddprot.h"
-
-typedef struct node_t {
-	pthread_t tid ;
-	pthread_mutex_t * m ;
-} node ;
+#include "ddgraph.h"
 
 node *
 node_alloc (pthread_t tid, pthread_mutex_t * m)
@@ -44,12 +34,6 @@ node_free (node * n)
 	free(n) ;
 }
 
-typedef struct edge_t {
-	node * u ;
-	node * v ;
-	int visited ;
-} edge ;
-
 edge *
 edge_alloc (node ** u, node ** v)
 {
@@ -74,12 +58,6 @@ edge_free (edge * e)
 {
 	free(e) ;
 }
-
-typedef struct nodelist_t {
-	node * n ;
-	struct nodelist_t * next ;
-	int size ;
-} nodelist ;
 
 int
 nodelist_search (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
@@ -142,12 +120,6 @@ nodelist_delete (nodelist ** nlist, pthread_t tid, pthread_mutex_t * m)
 	return 0 ;
 } /* nodelist_delete */
 
-typedef struct edgelist_t {
-	edge * e ;
-	struct edgelist_t * next ;
-	int size ;
-} edgelist ;
-
 int
 edgelist_search (edgelist ** elist, node * u, node * v)
 {
@@ -206,11 +178,6 @@ edgelist_delete (edgelist ** elist, pthread_t tid, pthread_mutex_t * m)
 	return 0 ;
 } /* edgelist_delete */
 
-typedef struct _graph {
-	nodelist * nlist ;
-	edgelist * elist ;
-} graph ;
-
 graph *
 graph_init ()
 {
@@ -241,75 +208,6 @@ graph_print (graph * g)
 		e_itr = e_itr->next ;
 	}
 } /* graph_print */
-
-int
-lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m)
-{
-	if (mode == LOCK) {
-
-		nodelist_insert(&g->nlist, tid, m) ;
-#ifdef DEBUG
-	fprintf(stderr, "[DEBUG] lock_dep LOCK after nodelistinsert\n") ;
-	fprintf(stderr, "[DEBUG] %p\n", g->nlist->n->m) ;
-#endif
-
-		nodelist * itr = g->nlist->next ; // new node is g->nlist so no need to create edge
-		while (itr) {
-			if (pthread_equal(itr->n->tid, tid)) {
-				edgelist_insert(&g->elist, itr->n, g->nlist->n) ;
-			}
-			itr = itr->next ;
-		}
-#ifdef DEBUG
-	fprintf(stderr, "[DEBUG] lock_dep LOCK end\n") ;
-#endif
-	} else if (mode == UNLOCK) {
-		edgelist_delete(&g->elist, tid, m) ;
-#ifdef DEBUG	
-	fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
-	graph_print(g) ;
-#endif
-		nodelist_delete(&g->nlist, tid, m) ;
-#ifdef DEBUG
-	fprintf(stderr, "[DEBUG] nodelist_delete\n") ;
-	graph_print(g) ;
-#endif
-	} else {
-		perror("unkown mode") ;
-		exit(EXIT_FAILURE) ;
-	}
-
-	edgelist * itr = g->elist ;
-	while (itr) {
-		itr->e->visited = 0 ;
-		itr = itr->next ;
-	}
-	itr = g->elist ;
-	int visit = 1 ;
-	while (itr) {
-		if (!itr->e->visited) {
-			itr->e->visited = visit ;
-			node * next = itr->e->v ;
-			edgelist * curr = g->elist ;
-			while (curr) {
-				if (curr->e->u->m == next->m) {
-					if (curr->e->visited == visit) {
-						return 1 ;
-					} else {
-						curr->e->visited = visit ;
-						next = curr->e->v ;
-						curr = g->elist ;
-					}
-				} else {
-					curr = curr->next ;
-				}
-			} // while(curr)
-		}
-		itr = itr->next ;
-		++visit ;
-	} // while(itr) 
-	return 0 ;
-} /* lock_dep */
 
 void
 graph_lock (graph * g, pthread_t tid, pthread_mutex_t * m)
@@ -392,61 +290,3 @@ detected (graph * g, char * fname, long int addr)
 		printf("%s", buf) ;
 	pclose(fp) ;
 } /* detected */
-
-int
-main (int argc, char * argv[])
-{
-	if (argc != 2) {
-		printf("Few arguements!\n") ;
-		exit(EXIT_SUCCESS) ;
-	}
-	if (mkfifo(".ddtrace", 0666)) {
-		if (errno != EEXIST) {
-			perror("mkfifo") ;
-			exit(EXIT_FAILURE) ;
-		}
-	}
-
-	int fd = open(".ddtrace", O_RDONLY | O_SYNC) ;
-	if (fd < 0) {
-		perror("open") ;
-		exit(EXIT_FAILURE) ;
-	}
-
-	graph * lockgraph = graph_init() ;
-	if (lockgraph == 0x0) {
-		perror("graph_init()") ;
-		exit(EXIT_FAILURE) ;
-	}
-
-	while (1) {
-		int mode ;
-		pthread_t tid ;
-		pthread_mutex_t * mutex ;
-		long int addr ;
-		flock(fd, LOCK_EX) ;
-			int ret = ddread(fd, &mode, &tid, &mutex, &addr) ;
-		flock(fd, LOCK_UN) ;
-
-		if (!ret)
-			continue ;
-#ifdef DEBUG
-	fprintf(stderr, "[READ] %d %ld %p\n", mode, tid, mutex) ;
-#endif
-		switch (mode) {
-			case LOCK :
-				graph_lock(lockgraph, tid, mutex) ;
-				break ;
-			case UNLOCK :
-				graph_unlock(lockgraph, tid, mutex) ;
-				break ;
-			default :
-				continue ;
-		}
-		if (graph_detect(lockgraph)) {
-			detected(lockgraph, argv[1], addr) ;
-			break ;
-		}
-	}	
-	close(fd) ;
-} /* main */
