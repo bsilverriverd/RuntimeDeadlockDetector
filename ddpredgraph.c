@@ -5,11 +5,14 @@
 #include <execinfo.h>
 #include <errno.h>
 
-#include "ddgraph.h"
+#include "ddpredgraph.h"
 
 node *
 node_alloc (pthread_t tid, pthread_mutex_t * m)
 {
+//#ifdef DEBUG
+//	fprintf(stderr, "node_alloc()\n") ;
+//#endif
 	node * n = (node *)malloc(sizeof(node)) ;
 	if (n == 0x0)
 		return 0x0 ;
@@ -38,9 +41,9 @@ node_free (node * n)
 edge *
 edge_alloc (node * u, node * v)
 {
-#ifdef DEBUG
-	fprintf(stderr, "edge_alloc()\n") ;
-#endif
+//#ifdef DEBUG
+//	fprintf(stderr, "edge_alloc()\n") ;
+//#endif
 	edge * e = (edge *)malloc(sizeof(edge)) ;
 	if (e == 0x0)
 		return 0x0 ;
@@ -54,6 +57,7 @@ edge_alloc (node * u, node * v)
 		perror("edge_alloc") ;
 		exit(EXIT_FAILURE) ;
 	}
+	e->g = 0x0 ;
 	e->visited = 0 ;
 	e->next = 0x0 ;
 
@@ -69,6 +73,8 @@ edge_equal (edge * e, edge * f)
 void
 edge_free (edge * e)
 {
+	while (e->g)
+		node_delete(&e->g, e->g->tid, e->g->m) ;
 	node_free(e->u) ;
 	node_free(e->v) ;
 	free(e) ;
@@ -90,8 +96,8 @@ node_search (node * nlist, pthread_t tid, pthread_mutex_t * m)
 int
 node_insert (node ** nlist, pthread_t tid, pthread_mutex_t * m)
 {
-	if (node_search(*nlist, tid, m))
-		return 0 ;
+//	if (node_search(*nlist, tid, m))
+//		return 0 ;
 
 	node * tmp = node_alloc(tid, m) ;
 	if (tmp == 0x0) {
@@ -147,17 +153,18 @@ edge_search (edge ** elist, node * u, node * v)
 int
 edge_insert (edge ** elist, node * u, node * v)
 {
-#ifdef DEBUG
-	fprintf(stderr, "edge_insert()\n") ;
-#endif
-	if (edge_search(elist, u, v))
-		return 0 ;
+//#ifdef DEBUG
+//	fprintf(stderr, "edge_insert()\n") ;
+//#endif
+	//if (edge_search(elist, u, v))
+	//	return 0 ;
 
 	edge * tmp = edge_alloc(u, v) ;
 	if (tmp == 0x0) {
 		perror("edge_alloc") ;
 		exit(EXIT_FAILURE) ;
 	}
+	tmp->g = 0x0 ;
 	tmp->next = *elist ;
 	*elist = tmp ;
 	return 1 ;
@@ -215,6 +222,11 @@ graph_print (graph * g)
 	printf("[EDGES]\n") ;
 	while (e_itr) {
 		printf("[(%ld, %p), (%ld, %p)]\n", e_itr->u->tid, e_itr->u->m, e_itr->v->tid, e_itr->v->m) ;
+#ifdef DEBUG
+	for (node * g = e_itr->g; g; g = g->next)
+		printf("(%p)-", g->m) ;
+	printf("\n") ;
+#endif
 		e_itr = e_itr->next ;
 	}
 } /* graph_print */
@@ -226,14 +238,18 @@ graph_lock (graph * g, pthread_t tid, pthread_mutex_t * m)
 		printf("RELOCK!\n") ;
 		return 0 ;
 	}
-#ifdef DEBUG
-	//fprintf(stderr, "[DEBUG] lock_dep LOCK after nodelistinsert\n") ;
-	//fprintf(stderr, "[DEBUG] %p\n", g->nlist->n->m) ;
-#endif
 	node * itr = g->nlist->next ; // new node is g->nlist so no need to create edge
 	while (itr) {
+//#ifdef DEBUG
+//	fprintf(stderr, "graph_lock: while (itr)\n") ;
+//#endif
 		if (pthread_equal(itr->tid, tid)) {
 			edge_insert(&g->elist, itr, g->nlist) ;
+			for (node * jtr = g->nlist->next; jtr; jtr = jtr->next) {
+				if (pthread_equal(jtr->tid, tid)) {
+					node_insert(&g->elist->g, jtr->tid, jtr->m) ;
+				}
+			}
 		}
 		itr = itr->next ;
 	}
@@ -243,7 +259,7 @@ graph_lock (graph * g, pthread_t tid, pthread_mutex_t * m)
 void
 graph_unlock (graph * g, pthread_t tid, pthread_mutex_t * m)
 {
-	edge_delete(&g->elist, tid, m) ;
+	//edge_delete(&g->elist, tid, m) ;
 #ifdef DEBUG	
 	//fprintf(stderr, "[DEBUG] edgelist_delete\n") ;
 	//graph_print(g) ;

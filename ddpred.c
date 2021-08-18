@@ -11,7 +11,7 @@
 #include <sys/file.h>
 
 #include "ddprot.h"
-#include "ddgraph.h"
+#include "ddpredgraph.h"
 
 int
 graph_predict (graph * g)
@@ -24,28 +24,91 @@ graph_predict (graph * g)
 	itr = g->elist ;
 	int visit = 1 ;
 	while (itr) {
-		if (!itr->visited) {
+		if (1) {
 			itr->visited = visit ;
+			edge * path = edge_alloc(itr->u, itr->v) ;
+			for (node * g = itr->g; g; g = g->next)
+				node_insert(&path->g, g->tid, g->m) ;
 			node * next = itr->v ;
-			edge * curr = g->elist ;
-			while (curr) {
-				if (!pthread_equal(curr->u->tid, next->tid)) {
-					if (curr->u->m == next->m) {
-						if (curr->visited == visit) {
-							return 1 ;
-						} else {
-							curr->visited = visit ;
-							next = curr->v ;
-							curr = g->elist ;
+			edge * jtr = g->elist ;
+			while (jtr) {
+				if (jtr->u->m == next->m) {
+					if (jtr->visited != visit) {
+#ifdef DEBUG
+	fprintf(stderr, "[PATH]\n") ;
+	for (edge * p = path; p; p = p->next)
+		printf("[(%ld, %p), (%ld, %p)]\n", p->u->tid, p->u->m, p->v->tid, p->v->m) ;
+	printf("[(%ld, %p), (%ld, %p)]\n", jtr->u->tid, jtr->u->m, jtr->v->tid, jtr->v->m) ;
+#endif
+						edge * p = path ;
+						while (p) {
+							if (pthread_equal(p->u->tid, jtr->u->tid)) {
+								break ;
+							} else {
+								p = p->next ;
+							}
+						} // while (p)
+						if (p != 0x0) { // single thread
+#ifdef DEBUG
+	fprintf(stderr, "single thread\n") ;
+#endif
+							jtr = jtr->next ;
+							continue ;
 						}
+						
+						for (p = path; p; p = p->next) {
+							node * pg = p->g ;
+							for (pg = p->g; pg; pg = pg->next) {
+								node * b = jtr->g ;
+								for (b = jtr->g; b; b = b->next) {
+									if (pg->m == b->m)
+										break ;
+								}
+								if (b != 0x0)
+									break ;
+							}
+							if (pg != 0x0)
+								break ;
+						} // for
+						if (p != 0x0) { // guard lock
+#ifdef DEBUG
+	fprintf(stderr, "guard lock\n") ;
+#endif
+							jtr = jtr->next ;
+							continue ;
+						}
+
+						jtr->visited = visit ;
+						for (p = path; p->next; p = p->next) {
+							if (p->u->m == jtr->v->m) {
+								return 1 ;
+							}
+						}
+						if (p->u->m == jtr->v->m) {
+							return 1 ;
+						}
+						p->next = edge_alloc(jtr->u, jtr->v) ;
+						for (node * g = jtr->g; g; g = g->next)
+							node_insert(&p->next->g, g->tid, g->m) ;
+						next = jtr->v ;
+						jtr = g->elist ;
+#if 1
+	fprintf(stderr, "[PATH]\n") ;
+	for (edge * p = path; p; p = p->next) {
+		printf("[(%ld, %p), (%ld, %p)]\n", p->u->tid, p->u->m, p->v->tid, p->v->m) ;
+#endif
+	}
 					} else {
-						curr = curr->next ;
-					}
+						jtr = jtr->next ;	
+					} // if (!jtr->visited)
 				} else {
-					curr = curr->next ;
-				}
-			} // while(curr)
-		}
+					jtr = jtr->next ;
+				} // if (jtr->m == next->m)
+			} // while (jtr)
+			while (path) {
+				edge_delete(&path, path->v->tid, path->v->m) ;
+			}
+		} // if (!itr->visited)
 		itr = itr->next ;
 		++visit ;
 	} // while(itr) 

@@ -1,5 +1,5 @@
-#ifndef DDGRAPH_H
-#define DDGRAPH_H
+#ifndef DDPREDGRAPH_H
+#define DDPREDGRAPH_H
 
 typedef struct node_t {
 	pthread_t tid ;
@@ -10,6 +10,7 @@ typedef struct node_t {
 typedef struct edge_t {
 	node * u ;
 	node * v ;
+	node * g ; // set of locks held at that time ;
 	int visited ;
 	struct edge_t * next ;
 } edge ;
@@ -75,4 +76,7 @@ lock_dep (graph * g, int mode, pthread_t tid, pthread_mutex_t * m) ;
 
 void
 detected (graph * g, char * fname, long int addr) ;
+
+node *
+get_lock_context (pthread_t tid) ;
 #endif

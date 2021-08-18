@@ -6,6 +6,7 @@ pthread_mutex_t m1 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t m2 = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t m3 = PTHREAD_MUTEX_INITIALIZER;
 void* myfunc1(){
+	sleep(1) ;
     pthread_mutex_lock(&m1);
     pthread_mutex_lock(&m2);
     pthread_mutex_lock(&m3);
@@ -24,7 +25,7 @@ void* myfunc2(){
 void main(){
     pthread_t thread1, thread2;
     pthread_create(&thread1, NULL, myfunc1, NULL);
-    sleep(1);
+//    sleep(1);
     pthread_create(&thread2, NULL, myfunc2, NULL);
     pthread_join(thread1, NULL);
     pthread_join(thread2, NULL);
